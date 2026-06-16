@@ -1,0 +1,32 @@
+{{- if .Values.search.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "jina-reader.componentFullname" (list . "search") }}
+  labels:
+    {{- include "jina-reader.componentLabels" (list . "search") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "jina-reader.componentFullname" (list . "search") }}
+  minReplicas: {{ .Values.search.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.search.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.search.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.search.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.search.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.search.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}
