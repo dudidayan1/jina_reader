@@ -1,0 +1,6 @@
+apiVersion: v2
+name: jina-reader
+description: Helm chart for jina-reader crawl, search, and serp services
+type: application
+version: 0.1.0
+appVersion: "latest"

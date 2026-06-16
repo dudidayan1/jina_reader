@@ -1,0 +1,104 @@
+image:
+  repository: ""
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+externalSecrets:
+  clusterSecretStoreName: ""
+  env:
+    enabled: false
+    targetSecretName: ""
+    externalEnvSecretName: ""
+  cloudflare:
+    enabled: false
+    targetSecretName: ""
+    externalTlsCrtSecret: cloudflare-ca-crt
+    externalTlsKeySecret: cloudflare-ca-pk
+
+envSecretName: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  host: ""
+  annotations:
+    nginx.ingress.kubernetes.io/send_timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-body-size: 16m
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  tls:
+    secretName: ""
+
+# Shared probes — all three containers respond to GET / with 200 after DI graph init.
+# initialDelaySeconds: 30 covers serviceReady() + NODE_COMPILE_CACHE warm step.
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 10
+  timeoutSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  failureThreshold: 6
+  timeoutSeconds: 5
+
+crawl:
+  replicaCount: 1
+  args:
+    - build/stand-alone/crawl.js
+  extraContainerEnv: []
+  resources: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 80
+
+search:
+  replicaCount: 1
+  args:
+    - build/stand-alone/search.js
+  extraContainerEnv: []
+  resources: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 80
+
+serp:
+  replicaCount: 1
+  args:
+    - build/stand-alone/serp.js
+  extraContainerEnv: []
+  resources: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 80
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
