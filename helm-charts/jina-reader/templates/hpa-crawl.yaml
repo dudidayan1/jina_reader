@@ -1,0 +1,32 @@
+{{- if .Values.crawl.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "jina-reader.componentFullname" (list . "crawl") }}
+  labels:
+    {{- include "jina-reader.componentLabels" (list . "crawl") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "jina-reader.componentFullname" (list . "crawl") }}
+  minReplicas: {{ .Values.crawl.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.crawl.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.crawl.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.crawl.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.crawl.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.crawl.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}

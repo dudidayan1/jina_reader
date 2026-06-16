@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "jina-reader.componentFullname" (list . "crawl") }}
+  labels:
+    {{- include "jina-reader.componentLabels" (list . "crawl") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "jina-reader.componentSelectorLabels" (list . "crawl") | nindent 4 }}
