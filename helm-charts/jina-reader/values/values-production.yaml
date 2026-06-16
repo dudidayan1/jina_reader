@@ -1,0 +1,112 @@
+image:
+  repository: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/<ECR_REPO_NAME>
+  pullPolicy: Always
+  tag: latest
+
+fullnameOverride: "jina-reader"
+
+externalSecrets:
+  clusterSecretStoreName: asm-<REGION>
+  env:
+    enabled: true
+    targetSecretName: jina-reader-production
+    externalEnvSecretName: jina-reader-production
+  cloudflare:
+    enabled: true
+    targetSecretName: jina-reader-cloudflare-tls
+    externalTlsCrtSecret: cloudflare-ca-crt
+    externalTlsKeySecret: cloudflare-ca-pk
+
+envSecretName: jina-reader-production
+
+ingress:
+  enabled: true
+  className: nginx
+  host: <YOUR_PRODUCTION_HOST>
+  annotations:
+    nginx.ingress.kubernetes.io/send_timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-body-size: 16m
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  tls:
+    secretName: jina-reader-cloudflare-tls
+
+crawl:
+  replicaCount: 2
+  args:
+    - build/stand-alone/crawl.js
+  extraContainerEnv:
+    - name: NODE_ENV
+      value: production
+  resources:
+    limits:
+      memory: 8Gi
+    requests:
+      cpu: "1"
+      memory: 8Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 80
+
+search:
+  replicaCount: 2
+  args:
+    - build/stand-alone/search.js
+  extraContainerEnv:
+    - name: NODE_ENV
+      value: production
+  resources:
+    limits:
+      memory: 6Gi
+    requests:
+      cpu: "1"
+      memory: 6Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 80
+
+serp:
+  replicaCount: 1
+  args:
+    - build/stand-alone/serp.js
+  extraContainerEnv:
+    - name: NODE_ENV
+      value: production
+  resources:
+    limits:
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 2Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 80
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/part-of
+              operator: In
+              values:
+                - jina-reader
+        topologyKey: kubernetes.io/hostname
