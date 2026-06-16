@@ -1,0 +1,32 @@
+{{- if .Values.serp.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "jina-reader.componentFullname" (list . "serp") }}
+  labels:
+    {{- include "jina-reader.componentLabels" (list . "serp") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "jina-reader.componentFullname" (list . "serp") }}
+  minReplicas: {{ .Values.serp.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.serp.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.serp.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.serp.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.serp.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.serp.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}
