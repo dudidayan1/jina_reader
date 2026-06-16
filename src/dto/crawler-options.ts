@@ -637,7 +637,9 @@ export class CrawlerOptions extends Coercible {
             }) as CrawlerOptions;
         }
 
-        const customMode = ctx?.get('x-respond-with') || ctx?.get('x-return-format');
+        const queryRespondWith = ctx?.query?.['respond-with'];
+        const customMode = ctx?.get('x-respond-with') || ctx?.get('x-return-format') ||
+            (Array.isArray(queryRespondWith) ? queryRespondWith[0] : queryRespondWith);
         if (customMode) {
             instance.respondWith = customMode;
         }
