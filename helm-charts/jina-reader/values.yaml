@@ -66,6 +66,7 @@ crawl:
     minReplicas: 1
     maxReplicas: 4
     targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
 
 search:
   replicaCount: 1
@@ -78,6 +79,7 @@ search:
     minReplicas: 1
     maxReplicas: 4
     targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
 
 serp:
   replicaCount: 1
@@ -90,6 +92,7 @@ serp:
     minReplicas: 1
     maxReplicas: 4
     targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
 
 serviceAccount:
   create: false
