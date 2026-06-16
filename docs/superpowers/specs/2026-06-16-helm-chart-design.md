@@ -46,7 +46,7 @@ Pattern: one chart, three explicit Deployment files (mirrors AdminCMS `cms` / `c
 | `jina-reader-search` | `build/stand-alone/search.js` | `/search` | 8080 |
 | `jina-reader-serp` | `build/stand-alone/serp.js` | `/serp` | 8080 |
 
-All three use `ENV PORT=8080` from the Dockerfile. The `CMD` in the Dockerfile defaults to `crawl.js`; search and serp override it via `command:` in their Deployment spec.
+All three use `ENV PORT=8080` from the Dockerfile. The Dockerfile `ENTRYPOINT` is `["node"]` and `CMD` defaults to `["build/stand-alone/crawl.js"]`. In Kubernetes, `command:` overrides `ENTRYPOINT` and `args:` overrides `CMD` — so search and serp override via `args:` to keep `node` as the entrypoint.
 
 ## Ingress & Path Routing
 
@@ -103,7 +103,7 @@ ingress:
 
 crawl:
   replicaCount: 1
-  command: ["build/stand-alone/crawl.js"]
+  args: ["build/stand-alone/crawl.js"]
   extraContainerEnv: []
   resources: {}
   autoscaling:
@@ -114,7 +114,7 @@ crawl:
 
 search:
   replicaCount: 1
-  command: ["build/stand-alone/search.js"]
+  args: ["build/stand-alone/search.js"]
   extraContainerEnv: []
   resources: {}
   autoscaling:
@@ -125,7 +125,7 @@ search:
 
 serp:
   replicaCount: 1
-  command: ["build/stand-alone/serp.js"]
+  args: ["build/stand-alone/serp.js"]
   extraContainerEnv: []
   resources: {}
   autoscaling:
