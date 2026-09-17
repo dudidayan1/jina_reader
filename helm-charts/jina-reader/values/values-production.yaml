@@ -1,59 +1,64 @@
 image:
-  repository: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/<ECR_REPO_NAME>
+  repository: europe-docker.pkg.dev/entail-production/jina-reader/jina-reader
   pullPolicy: Always
   tag: latest
 
 fullnameOverride: "jina-reader"
 
 externalSecrets:
-  clusterSecretStoreName: asm-<REGION>
+  clusterSecretStoreName: gcp-entail-production-store
   env:
     enabled: true
     targetSecretName: jina-reader-production
-    externalEnvSecretName: jina-reader-production
+    externalEnvSecretName: jina-reader
   cloudflare:
-    enabled: true
-    targetSecretName: jina-reader-cloudflare-tls
-    externalTlsCrtSecret: cloudflare-ca-crt
-    externalTlsKeySecret: cloudflare-ca-pk
+    enabled: false
+
+gatewayServiceName: nginx-ingress-nginx-controller.shared.svc.cluster.local
 
 envSecretName: jina-reader-production
 
 ingress:
   enabled: true
   className: nginx
-  host: <YOUR_PRODUCTION_HOST>
+  host: "reader.superbnode.com"
+  internalHost: "jina-reader.online.svc.cluster.local"
   annotations:
     nginx.ingress.kubernetes.io/send_timeout: "600"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-body-size: 16m
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
   tls:
-    secretName: jina-reader-cloudflare-tls
+    secretName: ""
 
 crawl:
-  replicaCount: 2
+  replicaCount: 1
   args:
     - build/stand-alone/crawl.js
   extraContainerEnv:
     - name: NODE_ENV
       value: production
+  # 30d Prometheus (Aug 18 - Sep 17 2026): working set p50 7.1Gi / p99 8.1Gi, ~50 OOMKills
+  # against the old 8Gi limit; CPU p99 3.8 cores against a 1 core request kept the HPA
+  # pinned at max. 10Gi gives real headroom; 2 cores makes CPU% reflect actual load.
   resources:
     limits:
-      memory: 8Gi
+      memory: 10Gi
     requests:
-      cpu: "1"
-      memory: 8Gi
+      cpu: "2"
+      memory: 10Gi
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 6
     targetCPUUtilizationPercentage: 80
 
 search:
-  replicaCount: 2
+  # Disabled 2026-09-17: 30d of logs/metrics showed only kubelet health probes and no
+  # callers (CMS uses READER_CRAWL_URL only). Flip to true to bring it back.
+  enabled: false
+  replicaCount: 1
   args:
     - build/stand-alone/search.js
   extraContainerEnv:
@@ -67,11 +72,14 @@ search:
       memory: 6Gi
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 4
     targetCPUUtilizationPercentage: 80
 
 serp:
+  # Disabled 2026-09-17: 30d of logs/metrics showed only kubelet health probes and no
+  # callers (CMS uses READER_CRAWL_URL only). Flip to true to bring it back.
+  enabled: false
   replicaCount: 1
   args:
     - build/stand-alone/serp.js
@@ -98,15 +106,26 @@ serviceAccount:
 podAnnotations: {}
 podSecurityContext: {}
 securityContext: {}
-nodeSelector: {}
-tolerations: []
+# All jina-reader components run on the dedicated spot pool (jina-spot-pool,
+# n2-highmem-8, tainted workload=jina-reader) so the crawler's 6x8-10Gi footprint
+# stops crowding out latency-sensitive services on default-pool.
+nodeSelector:
+  workload: jina-reader
+tolerations:
+  - key: workload
+    operator: Equal
+    value: jina-reader
+    effect: NoSchedule
+# Soft spread only: a hard rule would need one spot node per pod (up to 8 nodes).
 affinity:
   podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: app.kubernetes.io/part-of
-              operator: In
-              values:
-                - jina-reader
-        topologyKey: kubernetes.io/hostname
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/part-of
+                operator: In
+                values:
+                  - jina-reader
+          topologyKey: kubernetes.io/hostname

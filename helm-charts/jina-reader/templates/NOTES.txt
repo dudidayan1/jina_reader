@@ -3,6 +3,10 @@ jina-reader deployed successfully.
 {{- if .Values.ingress.enabled }}
 Services are available at:
   https://{{ .Values.ingress.host }}/crawl   — URL → Markdown (r.jina.ai equivalent)
+{{- if .Values.search.enabled }}
   https://{{ .Values.ingress.host }}/search  — Search query → crawled Markdown
+{{- end }}
+{{- if .Values.serp.enabled }}
   https://{{ .Values.ingress.host }}/serp    — Search query → raw SERP results
+{{- end }}
 {{- end }}

@@ -1,4 +1,4 @@
-{{- if .Values.serp.autoscaling.enabled }}
+{{- if and .Values.serp.enabled .Values.serp.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

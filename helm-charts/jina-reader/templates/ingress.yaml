@@ -1,3 +1,51 @@
+{{- define "jina-reader.ingressPaths" -}}
+- path: /crawl(/|$)(.*)
+  {{- if semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion }}
+  pathType: ImplementationSpecific
+  {{- end }}
+  backend:
+    {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
+    service:
+      name: {{ include "jina-reader.componentFullname" (list . "crawl") }}
+      port:
+        number: 80
+    {{- else }}
+    serviceName: {{ include "jina-reader.componentFullname" (list . "crawl") }}
+    servicePort: 80
+    {{- end }}
+{{- if .Values.search.enabled }}
+- path: /search(/|$)(.*)
+  {{- if semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion }}
+  pathType: ImplementationSpecific
+  {{- end }}
+  backend:
+    {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
+    service:
+      name: {{ include "jina-reader.componentFullname" (list . "search") }}
+      port:
+        number: 80
+    {{- else }}
+    serviceName: {{ include "jina-reader.componentFullname" (list . "search") }}
+    servicePort: 80
+    {{- end }}
+{{- end }}
+{{- if .Values.serp.enabled }}
+- path: /serp(/|$)(.*)
+  {{- if semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion }}
+  pathType: ImplementationSpecific
+  {{- end }}
+  backend:
+    {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
+    service:
+      name: {{ include "jina-reader.componentFullname" (list . "serp") }}
+      port:
+        number: 80
+    {{- else }}
+    serviceName: {{ include "jina-reader.componentFullname" (list . "serp") }}
+    servicePort: 80
+    {{- end }}
+{{- end }}
+{{- end }}
 {{- if .Values.ingress.enabled -}}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
@@ -28,49 +76,16 @@ spec:
       secretName: {{ .Values.ingress.tls.secretName }}
   {{- end }}
   rules:
+    {{- if .Values.ingress.host }}
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-          - path: /crawl(/|$)(.*)
-            {{- if semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion }}
-            pathType: ImplementationSpecific
-            {{- end }}
-            backend:
-              {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
-              service:
-                name: {{ include "jina-reader.componentFullname" (list . "crawl") }}
-                port:
-                  number: 80
-              {{- else }}
-              serviceName: {{ include "jina-reader.componentFullname" (list . "crawl") }}
-              servicePort: 80
-              {{- end }}
-          - path: /search(/|$)(.*)
-            {{- if semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion }}
-            pathType: ImplementationSpecific
-            {{- end }}
-            backend:
-              {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
-              service:
-                name: {{ include "jina-reader.componentFullname" (list . "search") }}
-                port:
-                  number: 80
-              {{- else }}
-              serviceName: {{ include "jina-reader.componentFullname" (list . "search") }}
-              servicePort: 80
-              {{- end }}
-          - path: /serp(/|$)(.*)
-            {{- if semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion }}
-            pathType: ImplementationSpecific
-            {{- end }}
-            backend:
-              {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
-              service:
-                name: {{ include "jina-reader.componentFullname" (list . "serp") }}
-                port:
-                  number: 80
-              {{- else }}
-              serviceName: {{ include "jina-reader.componentFullname" (list . "serp") }}
-              servicePort: 80
-              {{- end }}
+          {{- include "jina-reader.ingressPaths" . | nindent 10 }}
+    {{- end }}
+    {{- if .Values.ingress.internalHost }}
+    - host: {{ .Values.ingress.internalHost | quote }}
+      http:
+        paths:
+          {{- include "jina-reader.ingressPaths" . | nindent 10 }}
+    {{- end }}
 {{- end }}

@@ -1,5 +1,5 @@
 image:
-  repository: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/<ECR_REPO_NAME>-staging
+  repository: europe-docker.pkg.dev/entail-production/jina-reader/jina-reader
   pullPolicy: Always
   tag: latest
 
