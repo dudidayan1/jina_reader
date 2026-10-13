@@ -24,6 +24,7 @@ import { SecurityCompromiseError, ServiceCrashedError, ServiceNodeResourceDrainE
 import { randomBytes } from 'crypto';
 import { Finalizer } from './finalizer';
 import { privateIpNotAcceptable } from './misc';
+import { PageSlotLimiter } from './page-slot-limiter';
 const tldExtract = require('tld-extract');
 
 const READABILITY_JS = fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'), 'utf-8');
@@ -674,6 +675,12 @@ export class PuppeteerControl extends AsyncService {
     finalizerMap = new WeakMap<Page, ReturnType<typeof setTimeout>>();
     snMap = new WeakMap<Page, number>();
     livePages = new Set<Page>();
+    // Caps Chrome contexts per process: each checked-out page holds a slot until ditchPage().
+    pageSlots = new PageSlotLimiter(
+        parseInt(process.env.MAX_CONCURRENT_PAGES || '', 10) || 16,
+        parseInt(process.env.PAGE_SLOT_WAIT_MS || '', 10) || 120_000,
+    );
+    pageSlotMap = new WeakMap<Page, object>();
     lastPageCreatedAt: number = 0;
     ua: string = '';
     effectiveUA: string = '';
@@ -711,6 +718,8 @@ export class PuppeteerControl extends AsyncService {
             crippledTimes += 1;
             this.__loadedPage.length = 0;
             this.livePages.clear();
+            // Every page died with the browser; free their slots so waiters can proceed.
+            this.pageSlots.reset();
             if (crippledTimes > 5) {
                 process.nextTick(() => {
                     this.emit('error', new Error('Browser crashed too many times, quitting...'));
@@ -1023,10 +1032,36 @@ export class PuppeteerControl extends AsyncService {
     }
 
     async getNextPage() {
+        if (this.pageSlots.inUse >= this.pageSlots.maxSlots) {
+            this.logger.warn(`Page capacity reached (${this.pageSlots.inUse}/${this.pageSlots.maxSlots}), queueing`, { waiting: this.pageSlots.waiting + 1 });
+        }
+        const slot = await this.pageSlots.acquire();
+        let thePage: Page | undefined;
+        try {
+            thePage = await this.checkoutPage();
+        } catch (err) {
+            this.pageSlots.release(slot);
+            throw err;
+        }
+        this.pageSlotMap.set(thePage, slot);
+
+        const timer = setTimeout(() => {
+            this.logger.warn(`Page is not allowed to live past 5 minutes, ditching page ${this.snMap.get(thePage!)}...`);
+            this.ditchPage(thePage!);
+        }, 300 * 1000);
+
+        this.finalizerMap.set(thePage, timer);
+
+        return thePage;
+    }
+
+    protected async checkoutPage() {
         let thePage: Page | undefined;
         if (this.__loadedPage.length) {
             thePage = this.__loadedPage.shift();
-            if (this.__loadedPage.length <= 1) {
+            // Pre-loaded pages are live Chrome contexts too: only top up while under the cap.
+            if (this.__loadedPage.length <= 1 &&
+                this.pageSlots.inUse + this.__loadedPage.length < this.pageSlots.maxSlots) {
                 process.nextTick(() => {
                     this.newPage()
                         .then((r) => this.__loadedPage.push(r))
@@ -1041,13 +1076,6 @@ export class PuppeteerControl extends AsyncService {
             thePage = await this.newPage();
         }
 
-        const timer = setTimeout(() => {
-            this.logger.warn(`Page is not allowed to live past 5 minutes, ditching page ${this.snMap.get(thePage!)}...`);
-            this.ditchPage(thePage!);
-        }, 300 * 1000);
-
-        this.finalizerMap.set(thePage, timer);
-
         return thePage;
     }
 
@@ -1056,25 +1084,31 @@ export class PuppeteerControl extends AsyncService {
             clearTimeout(this.finalizerMap.get(page)!);
             this.finalizerMap.delete(page);
         }
-        if (page.isClosed()) {
-            return;
+        try {
+            if (page.isClosed()) {
+                return;
+            }
+            const sn = this.snMap.get(page);
+            this.logger.debug(`Closing page ${sn}`);
+            await Promise.race([
+                (async () => {
+                    const ctx = page.browserContext();
+                    try {
+                        await page.close();
+                    } finally {
+                        await ctx.close();
+                    }
+                })(),
+                delay(5000)
+            ]).catch((err) => {
+                this.logger.error(`Failed to destroy page ${sn}`, { err });
+            });
+            this.livePages.delete(page);
+        } finally {
+            // Idempotent: whichever path ditches the page first frees its slot.
+            this.pageSlots.release(this.pageSlotMap.get(page));
+            this.pageSlotMap.delete(page);
         }
-        const sn = this.snMap.get(page);
-        this.logger.debug(`Closing page ${sn}`);
-        await Promise.race([
-            (async () => {
-                const ctx = page.browserContext();
-                try {
-                    await page.close();
-                } finally {
-                    await ctx.close();
-                }
-            })(),
-            delay(5000)
-        ]).catch((err) => {
-            this.logger.error(`Failed to destroy page ${sn}`, { err });
-        });
-        this.livePages.delete(page);
     }
 
     async *scrap(parsedUrl: URL, options: ScrappingOptions = {}): AsyncGenerator<PageSnapshot | undefined> {

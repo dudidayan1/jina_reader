@@ -39,6 +39,9 @@ crawl:
   extraContainerEnv:
     - name: NODE_ENV
       value: production
+    # 2026-10-13: 6-15 renderers (~170MB each) live per pod, peak 19 pages; 12 covers normal load, keeps Chrome <~2.5Gi so node's 4-7Gi fits in 10Gi.
+    - name: MAX_CONCURRENT_PAGES
+      value: "12"
   # 30d Prometheus (Aug 18 - Sep 17 2026): working set p50 7.1Gi / p99 8.1Gi, ~50 OOMKills
   # against the old 8Gi limit; CPU p99 3.8 cores against a 1 core request kept the HPA
   # pinned at max. 10Gi gives real headroom; 2 cores makes CPU% reflect actual load.
