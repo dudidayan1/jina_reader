@@ -1516,8 +1516,12 @@ export class PuppeteerControl extends AsyncService {
                 const pSubFrameSnapshots = this.snapshotChildFrames(page);
                 const detachFlag = options.detachInvisibles ? 'true' : 'false';
                 snapshot = await page.evaluate(`giveSnapshot(true, undefined, ${detachFlag})`) as PageSnapshot;
-                screenshot = (await this.takeScreenShot(page)) || screenshot;
-                pageshot = (await this.takeScreenShot(page, { fullPage: true })) || pageshot;
+                // Only when asked for: a full-page shot of a long page is tens of MB of base64 over CDP, and taken
+                // on every crawl it grew the process past its 10Gi limit in under 30 minutes.
+                if (options.favorScreenshot) {
+                    screenshot = (await this.takeScreenShot(page)) || screenshot;
+                    pageshot = (await this.takeScreenShot(page, { fullPage: true })) || pageshot;
+                }
                 if (snapshot) {
                     snapshot.childFrames = await pSubFrameSnapshots;
                 }
