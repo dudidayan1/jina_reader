@@ -1,7 +1,7 @@
 import { singleton } from 'tsyringe';
 import { EnvConfig } from '../envconfig';
 import { ThorDataProxyProvider } from './thordata';
-// import { BrightDataProxyProvider } from './brightdata';
+import { BrightDataProxyProvider } from './brightdata';
 import { AsyncService } from 'civkit/async-service';
 import { randomPick } from 'civkit/random';
 import { ServiceBadApproachError } from '../errors';
@@ -32,12 +32,12 @@ export class ProxyProviderService extends AsyncService {
                 this.envConfig.THORDATA_PROXY_URL_ALT // optional
             ));
         }
-        // if (this.envConfig.BRIGHTDATA_PROXY_URL) {
-        //     this.clients.push(new BrightDataProxyProvider(this.envConfig.BRIGHTDATA_PROXY_URL));
-        // }
-        // if (this.envConfig.BRIGHTDATA_ISP_PROXY_URL) {
-        //     this.clients.push(new BrightDataProxyProvider(this.envConfig.BRIGHTDATA_ISP_PROXY_URL));
-        // }
+        if (this.envConfig.BRIGHTDATA_PROXY_URL) {
+            this.clients.push(new BrightDataProxyProvider(this.envConfig.BRIGHTDATA_PROXY_URL));
+        }
+        if (this.envConfig.BRIGHTDATA_ISP_PROXY_URL) {
+            this.clients.push(new BrightDataProxyProvider(this.envConfig.BRIGHTDATA_ISP_PROXY_URL));
+        }
 
         this.emit('ready');
     }

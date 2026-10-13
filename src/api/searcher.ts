@@ -723,7 +723,10 @@ export class SearcherHost extends RPCHost {
                         r = await Reflect.apply(func, client, [query]);
                         const dt = Date.now() - t0;
                         this.logger.info(`Search took ${dt}ms, ${client.constructor.name}(${variant})`, { searchDt: dt, variant, client: client.constructor.name });
-                        break outerLoop;
+                        if (r?.length) {
+                            break outerLoop;
+                        }
+                        this.logger.warn(`${client.constructor.name} returned empty results for "${query.q}", trying next provider`, { variant });
                     } catch (err) {
                         lastError = err;
                         const dt = Date.now() - t0;
