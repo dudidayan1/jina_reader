@@ -42,19 +42,19 @@ crawl:
     # 2026-10-13: 6-15 renderers (~170MB each) live per pod, peak 19 pages; 12 covers normal load, keeps Chrome <~2.5Gi so node's 4-7Gi fits in 10Gi.
     - name: MAX_CONCURRENT_PAGES
       value: "12"
-  # 30d Prometheus (Aug 18 - Sep 17 2026): working set p50 7.1Gi / p99 8.1Gi, ~50 OOMKills
-  # against the old 8Gi limit; CPU p99 3.8 cores against a 1 core request kept the HPA
-  # pinned at max. 10Gi gives real headroom; 2 cores makes CPU% reflect actual load.
+  # 2026-10-15: 324 OOMKills at 10Gi in a week while each pod sits alone on an n2-highmem-4
+  # (27.7Gi allocatable), so 20Gi costs nothing. CPU, not memory, limits read speed: the HPA sat
+  # at max with ~3.5 of 3.9 cores used per pod. maxReplicas must track jina-spot-pool's max nodes.
   resources:
     limits:
-      memory: 10Gi
+      memory: 20Gi
     requests:
       cpu: "2"
-      memory: 10Gi
+      memory: 20Gi
   autoscaling:
     enabled: true
     minReplicas: 1
-    maxReplicas: 6
+    maxReplicas: 10
     targetCPUUtilizationPercentage: 80
 
 search:
