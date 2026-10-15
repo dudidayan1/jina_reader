@@ -42,15 +42,15 @@ crawl:
     # 2026-10-13: 6-15 renderers (~170MB each) live per pod, peak 19 pages; 12 covers normal load, keeps Chrome <~2.5Gi so node's 4-7Gi fits in 10Gi.
     - name: MAX_CONCURRENT_PAGES
       value: "12"
-  # 2026-10-15: 324 OOMKills at 10Gi in a week while each pod sits alone on an n2-highmem-4
-  # (27.7Gi allocatable), so 20Gi costs nothing. CPU, not memory, limits read speed: the HPA sat
-  # at max with ~3.5 of 3.9 cores used per pod. maxReplicas must track jina-spot-pool's max nodes.
+  # One reader per n2-highmem-4 (3.92 cores / 27.7Gi allocatable; system pods reserve ~0.34 cores
+  # and ~0.5Gi), so the pod takes the rest of the node: 324 OOMKills at 10Gi in a week. The CPU
+  # request also makes the HPA's 80% mean ~2.8 real cores. maxReplicas must track jina-spot-pool.
   resources:
     limits:
-      memory: 20Gi
+      memory: 26Gi
     requests:
-      cpu: "2"
-      memory: 20Gi
+      cpu: "3.5"
+      memory: 26Gi
   autoscaling:
     enabled: true
     minReplicas: 1
