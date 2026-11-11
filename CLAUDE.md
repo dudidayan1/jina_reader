@@ -124,3 +124,21 @@ Mode-selecting vars worth remembering when reading code: `GCP_STORAGE_ENDPOINT` 
 - HTTP/2 cleartext (h2c) is used in production; `crawl.ts` / `search.ts` install an `http2.createServer` on top of the Koa callback. Each request gets its own `traceId` (random UUID) because h2c connections multiplex — don't rely on `x-cloud-trace-context` for per-request identity.
 - Public assets in `public/` are served directly by the stand-alone server's `walkForAssets()` — drop a file in there, rebuild, it's served at `/<filename>`.
 - The Reader API surface is entirely header- and body-driven; there are no path-based routes for options. When changing behavior, the right place is almost always `src/dto/crawler-options.ts` (parsing) plus `src/api/crawler.ts` (dispatch).
+
+## Write less code
+
+**Reuse before you write, share what you write, and cut the draft before you show it.**
+
+- **Search first.** Before writing a function, grep the repo's shared helper/util modules for one that already
+  does the job. If one does most of it, extend it with a real parameter instead of writing a near-copy.
+- **Shared over one-off.** A function that doesn't depend on local state is a named export in a shared module,
+  not a closure buried in a component, handler or worker. Take inputs as arguments. Generalize only for callers
+  that exist — no speculative options, flags or config objects. Genuinely local logic stays local.
+- **Cut the draft.** Before reporting done, run the `simplify` skill on the diff and delete what isn't needed:
+  duplicated blocks, checks for states that can't happen, `try`/`catch` that only rethrows, single-use
+  variables, wrappers that only forward, unused options, comments that restate the code, and the old code your
+  change replaced.
+- **Delete, don't golf.** Never cut a null-check, an edge case or an error path, and never compress lines to
+  hit a number. If a cut changes behaviour, it isn't a cut.
+- **Show the result.** In the final message, give `git diff --stat` before and after the cut, and name the
+  existing helpers you reused (and why any new function couldn't reuse one).
